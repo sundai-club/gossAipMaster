@@ -51,13 +51,14 @@ export default function QuizComponent() {
 
   const handleAnswerSelect = (selectedOption: string) => {
     const currentQuestion = questions[quizState.currentQuestionIndex];
+    const selectedIndex = currentQuestion.options.indexOf(selectedOption);
     
     const updatedState: QuizState = {
       ...quizState,
       selectedAnswer: selectedOption
     };
 
-    if (selectedOption === currentQuestion.correctAnswer) {
+    if (selectedIndex === currentQuestion.correctAnswer) {
       updatedState.score += 1;
     }
 
@@ -143,7 +144,7 @@ export default function QuizComponent() {
           <p className="text-xl mb-4">{currentQuestion.text}</p>
         </div>
         <div className="space-y-2">
-          {currentQuestion.options.map((option) => (
+          {currentQuestion.options.map((option, index) => (
             <button
               key={option}
               onClick={() => handleAnswerSelect(option)}
@@ -151,11 +152,11 @@ export default function QuizComponent() {
               className={`
                 w-full p-3 text-left rounded transition-colors duration-200
                 ${quizState.selectedAnswer === option 
-                  ? (option === currentQuestion.correctAnswer 
+                  ? (index === currentQuestion.correctAnswer 
                       ? 'bg-green-500 text-white' 
                       : 'bg-red-500 text-white')
                   : 'bg-blue-100 hover:bg-blue-200'}
-                ${quizState.selectedAnswer !== null && option === currentQuestion.correctAnswer 
+                ${quizState.selectedAnswer !== null && index === currentQuestion.correctAnswer 
                   ? 'bg-green-500 text-white' 
                   : ''}
               `}
