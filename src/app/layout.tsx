@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Quiz Game',
-  description: 'An interactive quiz game built with Next.js',
+  title: 'GossAIPMaster - Your Ultimate Gossip Companion',
+  description: 'Stay in the loop with all the hottest topics, trending debates, and juiciest discussions',
 }
 
 export default function RootLayout({
@@ -16,7 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.className} min-h-screen bg-gradient-to-b from-purple-900 via-purple-800 to-indigo-900`}>
+        {children}
+      </body>
     </html>
   )
 }
