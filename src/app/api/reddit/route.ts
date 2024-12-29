@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
+
 if (!process.env.OPENAI_API_KEY) {
   throw new Error('Missing OPENAI_API_KEY environment variable');
 }
@@ -17,7 +20,6 @@ async function fetchRedditPosts(topic: string) {
         headers: {
           'User-Agent': 'GossAIP/1.0',
         },
-        next: { revalidate: 60 }, // Cache for 60 seconds
       }
     );
 
@@ -73,8 +75,8 @@ function shuffleArray<T>(array: T[]): T[] {
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const topic = searchParams.get('topic');
+    const url = new URL(request.url);
+    const topic = url.searchParams.get('topic');
 
     if (!topic) {
       try {
@@ -82,7 +84,6 @@ export async function GET(request: Request) {
           headers: {
             'User-Agent': 'GossAIP/1.0',
           },
-          next: { revalidate: 60 }, // Cache for 60 seconds
         });
 
         if (!trendingResponse.ok) {

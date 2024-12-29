@@ -3,6 +3,8 @@
 import { useSearchParams } from 'next/navigation';
 import GossipGame from '@/components/GossipGame';
 
+export const dynamic = 'force-dynamic';
+
 export default function QuizPage() {
   const searchParams = useSearchParams();
   const topic = searchParams.get('topic') || '';
