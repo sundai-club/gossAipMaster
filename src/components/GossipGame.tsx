@@ -1,111 +1,99 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { GossipStory, GossipGameState } from '@/types/gossip';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
-interface GossipGameProps {
-  initialTopic?: string;
-  gameDuration?: number; // in seconds
+interface Story {
+  content: string;
+  isReal: boolean;
+  redditUrl?: string;
 }
 
-export default function GossipGame({ initialTopic = '', gameDuration = 120 }: GossipGameProps) {
-  const [topic, setTopic] = useState(initialTopic);
-  const [loading, setLoading] = useState(false);
-  const [stories, setStories] = useState<GossipStory[]>([]);
-  const [gameState, setGameState] = useState<GossipGameState>({
-    selectedIndex: null,
-    isRevealed: false,
-    correctIndex: -1,
-    score: 0,
-    timeLeft: gameDuration,
-    isGameActive: false,
-    totalAttempts: 0
-  });
-  const [error, setError] = useState<string | null>(null);
+interface GossipResponse {
+  topic: string;
+  stories: Story[];
+  correctIndex: number;
+}
 
-  // Timer effect
+export default function GossipGame() {
+  const searchParams = useSearchParams();
+  const [topic, setTopic] = useState(searchParams.get('topic') || '');
+  const [loading, setLoading] = useState(false);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [correctIndex, setCorrectIndex] = useState<number>(-1);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [revealed, setRevealed] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes in seconds
+  const [score, setScore] = useState(0);
+  const [attempts, setAttempts] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (gameState.isGameActive && gameState.timeLeft > 0) {
+    if (gameStarted && !gameOver && timeLeft > 0) {
       timer = setInterval(() => {
-        setGameState(prev => ({
-          ...prev,
-          timeLeft: prev.timeLeft - 1
-        }));
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setGameOver(true);
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
-    } else if (gameState.timeLeft === 0 && gameState.isGameActive) {
-      endGame();
     }
+    return () => clearInterval(timer);
+  }, [gameStarted, gameOver, timeLeft]);
 
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [gameState.isGameActive, gameState.timeLeft]);
-
-  const fetchGossip = async (userTopic?: string) => {
+  const fetchGossip = async (searchTopic: string) => {
     setLoading(true);
-    setError(null);
     try {
-      const response = await fetch(`/api/gossip?topic=${encodeURIComponent(userTopic || topic)}`);
+      const response = await fetch(`/api/reddit?topic=${encodeURIComponent(searchTopic)}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch gossip');
+        const data = await response.json();
+        if (data.suggestion) {
+          setTopic(data.suggestion);
+        }
+        throw new Error(data.error || 'Failed to fetch gossip');
       }
-      const data = await response.json();
+      const data: GossipResponse = await response.json();
       setStories(data.stories);
-      setGameState(prev => ({ ...prev, correctIndex: data.correctIndex }));
-    } catch (err) {
-      setError('Failed to fetch gossip. Please try again.');
+      setCorrectIndex(data.correctIndex);
+      setSelectedIndex(-1);
+      setRevealed(false);
+    } catch (error) {
+      console.error('Error fetching gossip:', error);
+      alert(error instanceof Error ? error.message : 'Failed to fetch gossip');
     } finally {
       setLoading(false);
     }
   };
 
-  const startGame = () => {
-    setGameState(prev => ({
-      ...prev,
-      isGameActive: true,
-      timeLeft: gameDuration,
-      score: 0,
-      totalAttempts: 0
-    }));
-    fetchGossip();
-  };
-
-  const endGame = () => {
-    setGameState(prev => ({
-      ...prev,
-      isGameActive: false
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    startGame();
-  };
-
-  const handleStorySelect = (index: number) => {
-    if (!gameState.isRevealed && gameState.isGameActive) {
-      const isCorrect = index === gameState.correctIndex;
-      setGameState(prev => ({
-        ...prev,
-        selectedIndex: index,
-        isRevealed: true,
-        score: isCorrect ? prev.score + 1 : prev.score,
-        totalAttempts: prev.totalAttempts + 1
-      }));
+  const handleStartGame = () => {
+    setGameStarted(true);
+    setScore(0);
+    setAttempts(0);
+    setTimeLeft(120);
+    setGameOver(false);
+    if (topic) {
+      fetchGossip(topic);
     }
   };
 
-  const nextGossip = () => {
-    if (gameState.timeLeft > 0) {
-      setStories([]);
-      setGameState(prev => ({
-        ...prev,
-        selectedIndex: null,
-        isRevealed: false,
-        correctIndex: -1
-      }));
-      fetchGossip();
+  const handleNextGossip = () => {
+    if (topic) {
+      fetchGossip(topic);
+    }
+  };
+
+  const handleGuess = (index: number) => {
+    if (selectedIndex === -1 && !revealed) {
+      setSelectedIndex(index);
+      setRevealed(true);
+      setAttempts(prev => prev + 1);
+      if (index === correctIndex) {
+        setScore(prev => prev + 1);
+      }
     }
   };
 
@@ -115,124 +103,101 @@ export default function GossipGame({ initialTopic = '', gameDuration = 120 }: Go
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (loading) {
+  if (gameOver) {
+    const accuracy = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
     return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center p-8">
-        <p className="text-red-400 mb-4">{error}</p>
-        <button
-          onClick={() => fetchGossip()}
-          className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
-  if (!gameState.isGameActive) {
-    return (
-      <div className="max-w-2xl mx-auto p-6">
-        {gameState.totalAttempts > 0 && (
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-purple-100 mb-4">Game Over!</h2>
-            <p className="text-xl text-purple-200">Final Score: {gameState.score}/{gameState.totalAttempts}</p>
-            <p className="text-lg text-purple-300 mt-2">
-              Accuracy: {((gameState.score / gameState.totalAttempts) * 100).toFixed(1)}%
-            </p>
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="topic" className="block text-lg mb-2 text-purple-100">
-              Enter a topic for gossip (or leave empty for trending topics)
-            </label>
-            <input
-              type="text"
-              id="topic"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg bg-black/30 border border-purple-500/50 text-white focus:outline-none focus:border-purple-500"
-              placeholder="Celebrity, Tech, Sports, etc."
-            />
-          </div>
+      <div className="max-w-2xl mx-auto p-6 bg-white/10 backdrop-blur-lg rounded-lg shadow-xl">
+        <h2 className="text-3xl font-bold text-center mb-6 text-white">Game Over!</h2>
+        <div className="text-center space-y-4 text-white">
+          <p className="text-2xl">Final Score: {score}</p>
+          <p className="text-xl">Total Attempts: {attempts}</p>
+          <p className="text-xl">Accuracy: {accuracy}%</p>
           <button
-            type="submit"
-            className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-colors"
+            onClick={handleStartGame}
+            className="mt-6 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
           >
-            Start {gameDuration / 60}-Minute Challenge!
+            Play Again
           </button>
-        </form>
+        </div>
+      </div>
+    );
+  }
+
+  if (!gameStarted) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 bg-white/10 backdrop-blur-lg rounded-lg shadow-xl">
+        <h1 className="text-3xl font-bold text-center mb-6 text-white">Gossip Game</h1>
+        <div className="space-y-4">
+          <input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="Enter a topic..."
+            className="w-full p-3 rounded-lg bg-white/20 text-white placeholder-white/50 backdrop-blur-sm"
+          />
+          <button
+            onClick={handleStartGame}
+            disabled={!topic}
+            className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Start 2-Minute Challenge!
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-8">
-      <div className="flex justify-between items-center">
-        <div className="text-xl text-purple-200">
-          Score: {gameState.score}/{gameState.totalAttempts}
-        </div>
-        <div className="text-xl text-purple-200">
-          Time: {formatTime(gameState.timeLeft)}
-        </div>
+    <div className="max-w-2xl mx-auto p-6 bg-white/10 backdrop-blur-lg rounded-lg shadow-xl">
+      <div className="mb-6 flex justify-between items-center text-white">
+        <div>Score: {score}</div>
+        <div>Time Left: {formatTime(timeLeft)}</div>
       </div>
-
-      <h2 className="text-2xl font-bold text-center text-purple-100 mb-6">
-        {gameState.isRevealed ? "Here's the Truth!" : "Can You Spot the Real Gossip?"}
-      </h2>
-      <p className="text-xl text-center text-purple-200 mb-8">Topic: {topic}</p>
-
-      <div className="space-y-6">
-        {stories.map((story, index) => (
-          <div
-            key={index}
-            onClick={() => !gameState.isRevealed && handleStorySelect(index)}
-            className={`p-6 rounded-xl transition-all cursor-pointer ${
-              gameState.isRevealed
-                ? story.isReal
-                  ? 'bg-green-500/20 border-2 border-green-500'
-                  : gameState.selectedIndex === index
-                  ? 'bg-red-500/20 border-2 border-red-500'
-                  : 'bg-black/30'
-                : 'bg-black/30 hover:bg-black/40 border border-purple-500/30'
-            }`}
-          >
-            <p className="text-lg mb-2">{story.content}</p>
-            {gameState.isRevealed && story.isReal && story.redditUrl && (
-              <a
-                href={story.redditUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 underline block mt-2"
+      
+      {loading ? (
+        <div className="text-center py-8 text-white">Loading gossip...</div>
+      ) : (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold mb-4 text-white">Topic: {topic}</h2>
+          
+          <div className="space-y-4">
+            {stories.map((story, index) => (
+              <div
+                key={index}
+                onClick={() => handleGuess(index)}
+                className={`p-4 rounded-lg cursor-pointer transition-colors ${
+                  revealed
+                    ? index === correctIndex
+                      ? 'bg-green-500/20'
+                      : 'bg-red-500/20'
+                    : selectedIndex === index
+                    ? 'bg-purple-500/20'
+                    : 'bg-white/20 hover:bg-white/30'
+                }`}
               >
-                View Original Reddit Thread →
-              </a>
-            )}
+                <p className="text-white">{story.content}</p>
+                {revealed && index === correctIndex && story.redditUrl && (
+                  <a
+                    href={story.redditUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-300 hover:text-blue-400 text-sm mt-2 block"
+                  >
+                    View on Reddit →
+                  </a>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-
-      {gameState.isRevealed && (
-        <div className="text-center mt-8">
-          <p className="text-xl mb-4">
-            {gameState.selectedIndex === gameState.correctIndex
-              ? "🎉 You've got a nose for real gossip!"
-              : "Oops! That was a creative fake. The real tea was option " + (gameState.correctIndex + 1)}
-          </p>
-          <button
-            onClick={nextGossip}
-            className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-colors"
-          >
-            Next Gossip!
-          </button>
+          
+          {revealed && (
+            <button
+              onClick={handleNextGossip}
+              className="w-full mt-4 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Next Gossip!
+            </button>
+          )}
         </div>
       )}
     </div>

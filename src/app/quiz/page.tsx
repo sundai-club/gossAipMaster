@@ -1,14 +1,15 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import GossipGame from '@/components/GossipGame';
+import dynamic from 'next/dynamic';
+
+const GossipGame = dynamic(() => import('@/components/GossipGame'), {
+  ssr: false
+});
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export default function QuizPage() {
-  const searchParams = useSearchParams();
-  const topic = searchParams.get('topic') || '';
-
   return (
     <main className="min-h-screen relative">
       {/* Background with animated gradient */}
@@ -24,7 +25,7 @@ export default function QuizPage() {
       {/* Content */}
       <div className="relative min-h-screen flex flex-col items-center justify-center p-4">
         <div className="w-full">
-          <GossipGame initialTopic={topic} />
+          <GossipGame />
         </div>
       </div>
 
