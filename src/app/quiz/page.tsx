@@ -1,10 +1,8 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { lazy, Suspense } from 'react';
 
-const GossipGame = dynamic(() => import('@/components/GossipGame'), {
-  ssr: false
-});
+const GossipGame = lazy(() => import('@/components/GossipGame'));
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
@@ -25,7 +23,9 @@ export default function QuizPage() {
       {/* Content */}
       <div className="relative min-h-screen flex flex-col items-center justify-center p-4">
         <div className="w-full">
-          <GossipGame />
+          <Suspense fallback={<div>Loading...</div>}>
+            <GossipGame />
+          </Suspense>
         </div>
       </div>
 
