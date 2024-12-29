@@ -3,6 +3,7 @@ export interface Question {
   text: string;
   options: string[];
   correctAnswer: number;
+  topic?: string;
 }
 
 export interface QuizState {

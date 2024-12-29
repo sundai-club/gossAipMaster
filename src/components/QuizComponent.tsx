@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Question, QuizState } from '@/types/quiz';
 import { quizQuestions } from '@/data/questions';
+import { useRouter } from 'next/navigation';
 
 interface QuizComponentProps {
   topic: string;
 }
 
 export default function QuizComponent({ topic }: QuizComponentProps) {
+  const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [quizState, setQuizState] = useState<QuizState>({
     currentQuestionIndex: 0,
@@ -18,9 +20,20 @@ export default function QuizComponent({ topic }: QuizComponentProps) {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState(20);
+  const [timerActive, setTimerActive] = useState(false);
+
+  const startTimer = useCallback(() => {
+    setTimerActive(true);
+    setTimeRemaining(20);
+  }, []);
+
+  const goToHomePage = () => {
+    router.push('/');
+  };
 
   useEffect(() => {
-    async function fetchQuestions() {
+    const fetchQuestions = async () => {
       try {
         const response = await fetch('/api/questions', {
           method: 'GET',
@@ -51,7 +64,35 @@ export default function QuizComponent({ topic }: QuizComponentProps) {
     }
 
     fetchQuestions();
-  }, [topic]); // Add topic as dependency
+  }, [topic]);
+
+  useEffect(() => {
+    let timerId: NodeJS.Timeout;
+    
+    if (timerActive && timeRemaining > 0) {
+      timerId = setTimeout(() => {
+        setTimeRemaining(prev => prev - 1);
+      }, 1000);
+    } else if (timerActive && timeRemaining === 0) {
+      // Time's up, end the quiz
+      setQuizState(prev => ({
+        ...prev,
+        isQuizComplete: true
+      }));
+      setTimerActive(false);
+    }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [timerActive, timeRemaining]);
+
+  useEffect(() => {
+    // Start timer when first question loads
+    if (questions.length > 0 && !timerActive) {
+      startTimer();
+    }
+  }, [questions, timerActive, startTimer]);
 
   const handleAnswerSelect = (selectedOption: string) => {
     const currentQuestion = questions[quizState.currentQuestionIndex];
@@ -83,6 +124,7 @@ export default function QuizComponent({ topic }: QuizComponentProps) {
         ...quizState,
         isQuizComplete: true
       });
+      setTimerActive(false);
     }
   };
 
@@ -93,6 +135,7 @@ export default function QuizComponent({ topic }: QuizComponentProps) {
       selectedAnswer: null,
       isQuizComplete: false
     });
+    startTimer();
   };
 
   if (isLoading) {
@@ -128,12 +171,12 @@ export default function QuizComponent({ topic }: QuizComponentProps) {
           Your Score: {quizState.score} out of {questions.length}
         </p>
         <button
-          onClick={resetQuiz}
+          onClick={goToHomePage}
           className="px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-500 
                    hover:from-pink-600 hover:to-purple-600 rounded-xl text-xl 
                    text-white transition-all transform hover:scale-105"
         >
-          Try Again
+          Back to Home
         </button>
       </div>
     );
@@ -142,50 +185,21 @@ export default function QuizComponent({ topic }: QuizComponentProps) {
   const currentQuestion = questions[quizState.currentQuestionIndex];
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-4">Gossip AI Master</h2>
-        <div className="mb-4">
-          <p className="text-lg font-semibold mb-2">
-            Question {quizState.currentQuestionIndex + 1} of {questions.length}
-          </p>
-          <p className="text-xl mb-4">{currentQuestion.text}</p>
+    <div className="max-w-md mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="text-white text-lg">
+          Question {quizState.currentQuestionIndex + 1} of {questions.length}
         </div>
-        <div className="space-y-2">
-          {currentQuestion.options.map((option, index) => (
-            <button
-              key={option}
-              onClick={() => handleAnswerSelect(option)}
-              disabled={quizState.selectedAnswer !== null}
-              className={`
-                w-full p-3 text-left rounded transition-colors duration-200
-                ${quizState.selectedAnswer === option 
-                  ? (index === currentQuestion.correctAnswer 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-red-500 text-white')
-                  : 'bg-blue-100 hover:bg-blue-200'}
-                ${quizState.selectedAnswer !== null && index === currentQuestion.correctAnswer 
-                  ? 'bg-green-500 text-white' 
-                  : ''}
-              `}
-            >
-              {option}
-            </button>
-          ))}
+        <div className={`text-xl font-bold ${timeRemaining <= 5 ? 'text-red-500' : 'text-white'}`}>
+          Time: {timeRemaining}s
         </div>
-        {quizState.selectedAnswer && (
-          <div className="mt-4 text-center">
-            <button 
-              onClick={moveToNextQuestion}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Next Question
-            </button>
-          </div>
-        )}
-        <div className="mt-4 text-center text-gray-600">
+        <div className="text-white text-lg">
           Current Score: {quizState.score}
         </div>
+      </div>
+
+      <div className="text-center mb-6">
+        <p className="text-xl text-white mb-4">{currentQuestion.text}</p>
       </div>
 
       <div className="space-y-4">
