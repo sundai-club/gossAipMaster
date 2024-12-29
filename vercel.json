@@ -7,5 +7,11 @@
   "regions": ["iad1"],
   "env": {
     "OPENAI_API_KEY": "@openai_api_key"
-  }
+  },
+  "github": {
+    "enabled": true,
+    "silent": true,
+    "autoAlias": true
+  },
+  "alias": ["gossaip.vercel.app", "www.gossaip.vercel.app"]
 }
