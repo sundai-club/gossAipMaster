@@ -5,8 +5,13 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Gossip AI Master',
-  description: 'An interactive quiz game built with Next.js',
+
+  title: 'GossAIP - Your AI Gossip Companion',
+  description: 'Stay in the loop with all the hottest topics, trending debates, and juiciest discussions',
+  icons: {
+    icon: '/gossip-icon.png',
+  },
+
 }
 
 export default function RootLayout({
@@ -17,9 +22,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>{metadata.title}</title>
+        <link rel="icon" href="/gossip-icon.png" />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.className} min-h-screen bg-gradient-to-b from-purple-900 via-purple-800 to-indigo-900`}>
+        {children}
+      </body>
     </html>
   )
 }
