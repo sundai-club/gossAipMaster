@@ -212,10 +212,10 @@ export default function QuizComponent({ topic }: QuizComponentProps) {
                      ${quizState.selectedAnswer === null 
                        ? 'bg-white/20 hover:bg-white/30 text-white' 
                        : quizState.selectedAnswer === option
-                         ? option === currentQuestion.correctAnswer
+                         ? index === currentQuestion.correctAnswer
                            ? 'bg-green-500/50 text-white'
                            : 'bg-red-500/50 text-white'
-                         : option === currentQuestion.correctAnswer
+                         : index === currentQuestion.correctAnswer
                            ? 'bg-green-500/50 text-white'
                            : 'bg-white/20 text-white opacity-50'
                      }`}
