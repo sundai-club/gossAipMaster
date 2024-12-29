@@ -135,7 +135,7 @@ export default function QuizComponent() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-4">Quiz Game</h2>
+        <h2 className="text-2xl font-bold mb-4">Gossip AI Master</h2>
         <div className="mb-4">
           <p className="text-lg font-semibold mb-2">
             Question {quizState.currentQuestionIndex + 1} of {questions.length}

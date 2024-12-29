@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Quiz Game',
+  title: 'Gossip AI Master',
   description: 'An interactive quiz game built with Next.js',
 }
 
@@ -16,6 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <title>{metadata.title}</title>
+      </head>
       <body className={inter.className}>{children}</body>
     </html>
   )
