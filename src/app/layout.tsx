@@ -5,11 +5,13 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
+
   title: 'GossAIP - Your AI Gossip Companion',
   description: 'Stay in the loop with all the hottest topics, trending debates, and juiciest discussions',
   icons: {
     icon: '/gossip-icon.png',
   },
+
 }
 
 export default function RootLayout({
