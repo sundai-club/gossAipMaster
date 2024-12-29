@@ -5,18 +5,18 @@ export const quizQuestions: Question[] = [
     id: '1',
     text: 'What is the capital of France?',
     options: ['London', 'Berlin', 'Paris', 'Madrid'],
-    correctAnswer: 'Paris'
+    correctAnswer: 2
   },
   {
     id: '2',
     text: 'Which planet is known as the Red Planet?',
     options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
-    correctAnswer: 'Mars'
+    correctAnswer: 1
   },
   {
     id: '3',
     text: 'What is 2 + 2?',
     options: ['3', '4', '5', '6'],
-    correctAnswer: '4'
+    correctAnswer: 1
   }
 ];
