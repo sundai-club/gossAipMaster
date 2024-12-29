@@ -1,22 +1,46 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { GossipStory, GossipGameState } from '@/types/gossip';
 
 interface GossipGameProps {
   initialTopic?: string;
+  gameDuration?: number; // in seconds
 }
 
-export default function GossipGame({ initialTopic = '' }: GossipGameProps) {
+export default function GossipGame({ initialTopic = '', gameDuration = 120 }: GossipGameProps) {
   const [topic, setTopic] = useState(initialTopic);
   const [loading, setLoading] = useState(false);
   const [stories, setStories] = useState<GossipStory[]>([]);
   const [gameState, setGameState] = useState<GossipGameState>({
     selectedIndex: null,
     isRevealed: false,
-    correctIndex: -1
+    correctIndex: -1,
+    score: 0,
+    timeLeft: gameDuration,
+    isGameActive: false,
+    totalAttempts: 0
   });
   const [error, setError] = useState<string | null>(null);
+
+  // Timer effect
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (gameState.isGameActive && gameState.timeLeft > 0) {
+      timer = setInterval(() => {
+        setGameState(prev => ({
+          ...prev,
+          timeLeft: prev.timeLeft - 1
+        }));
+      }, 1000);
+    } else if (gameState.timeLeft === 0 && gameState.isGameActive) {
+      endGame();
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [gameState.isGameActive, gameState.timeLeft]);
 
   const fetchGossip = async (userTopic?: string) => {
     setLoading(true);
@@ -36,29 +60,59 @@ export default function GossipGame({ initialTopic = '' }: GossipGameProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const startGame = () => {
+    setGameState(prev => ({
+      ...prev,
+      isGameActive: true,
+      timeLeft: gameDuration,
+      score: 0,
+      totalAttempts: 0
+    }));
     fetchGossip();
   };
 
+  const endGame = () => {
+    setGameState(prev => ({
+      ...prev,
+      isGameActive: false
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    startGame();
+  };
+
   const handleStorySelect = (index: number) => {
-    if (!gameState.isRevealed) {
+    if (!gameState.isRevealed && gameState.isGameActive) {
+      const isCorrect = index === gameState.correctIndex;
       setGameState(prev => ({
         ...prev,
         selectedIndex: index,
-        isRevealed: true
+        isRevealed: true,
+        score: isCorrect ? prev.score + 1 : prev.score,
+        totalAttempts: prev.totalAttempts + 1
       }));
     }
   };
 
-  const playAgain = () => {
-    setStories([]);
-    setTopic('');
-    setGameState({
-      selectedIndex: null,
-      isRevealed: false,
-      correctIndex: -1
-    });
+  const nextGossip = () => {
+    if (gameState.timeLeft > 0) {
+      setStories([]);
+      setGameState(prev => ({
+        ...prev,
+        selectedIndex: null,
+        isRevealed: false,
+        correctIndex: -1
+      }));
+      fetchGossip();
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -83,9 +137,18 @@ export default function GossipGame({ initialTopic = '' }: GossipGameProps) {
     );
   }
 
-  if (stories.length === 0) {
+  if (!gameState.isGameActive) {
     return (
       <div className="max-w-2xl mx-auto p-6">
+        {gameState.totalAttempts > 0 && (
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-purple-100 mb-4">Game Over!</h2>
+            <p className="text-xl text-purple-200">Final Score: {gameState.score}/{gameState.totalAttempts}</p>
+            <p className="text-lg text-purple-300 mt-2">
+              Accuracy: {((gameState.score / gameState.totalAttempts) * 100).toFixed(1)}%
+            </p>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="topic" className="block text-lg mb-2 text-purple-100">
@@ -104,7 +167,7 @@ export default function GossipGame({ initialTopic = '' }: GossipGameProps) {
             type="submit"
             className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-colors"
           >
-            Get the Gossip!
+            Start {gameDuration / 60}-Minute Challenge!
           </button>
         </form>
       </div>
@@ -113,6 +176,15 @@ export default function GossipGame({ initialTopic = '' }: GossipGameProps) {
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-8">
+      <div className="flex justify-between items-center">
+        <div className="text-xl text-purple-200">
+          Score: {gameState.score}/{gameState.totalAttempts}
+        </div>
+        <div className="text-xl text-purple-200">
+          Time: {formatTime(gameState.timeLeft)}
+        </div>
+      </div>
+
       <h2 className="text-2xl font-bold text-center text-purple-100 mb-6">
         {gameState.isRevealed ? "Here's the Truth!" : "Can You Spot the Real Gossip?"}
       </h2>
@@ -156,10 +228,10 @@ export default function GossipGame({ initialTopic = '' }: GossipGameProps) {
               : "Oops! That was a creative fake. The real tea was option " + (gameState.correctIndex + 1)}
           </p>
           <button
-            onClick={playAgain}
+            onClick={nextGossip}
             className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-colors"
           >
-            Play Again!
+            Next Gossip!
           </button>
         </div>
       )}
