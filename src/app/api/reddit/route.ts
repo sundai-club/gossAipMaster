@@ -1,26 +1,40 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error('Missing OPENAI_API_KEY environment variable');
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 async function fetchRedditPosts(topic: string) {
-  const response = await fetch(
-    `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=top&t=week&limit=5`,
-    {
-      headers: {
-        'User-Agent': 'GossAIP/1.0',
-      },
+  try {
+    const response = await fetch(
+      `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=top&t=week&limit=5`,
+      {
+        headers: {
+          'User-Agent': 'GossAIP/1.0',
+        },
+        next: { revalidate: 60 }, // Cache for 60 seconds
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Reddit API error: ${response.status}`);
     }
-  );
 
-  if (!response.ok) {
-    throw new Error('Failed to fetch from Reddit');
+    const data = await response.json();
+    if (!data?.data?.children?.length) {
+      throw new Error('No posts found');
+    }
+
+    return data.data.children.map((child: any) => child.data);
+  } catch (error) {
+    console.error('Error fetching Reddit posts:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  return data.data.children.map((child: any) => child.data);
 }
 
 async function generateFakeGossip(realGossip: string, topic: string) {
@@ -63,23 +77,44 @@ export async function GET(request: Request) {
     const topic = searchParams.get('topic');
 
     if (!topic) {
-      const trendingResponse = await fetch('https://www.reddit.com/r/popular/hot.json?limit=1');
-      const trendingData = await trendingResponse.json();
-      const trendingTopic = trendingData.data.children[0].data.title;
-      return NextResponse.json({ error: 'Topic is required', suggestion: trendingTopic }, { status: 400 });
+      try {
+        const trendingResponse = await fetch('https://www.reddit.com/r/popular/hot.json?limit=1', {
+          headers: {
+            'User-Agent': 'GossAIP/1.0',
+          },
+          next: { revalidate: 60 }, // Cache for 60 seconds
+        });
+
+        if (!trendingResponse.ok) {
+          throw new Error('Failed to fetch trending topics');
+        }
+
+        const trendingData = await trendingResponse.json();
+        const trendingTopic = trendingData?.data?.children?.[0]?.data?.title;
+
+        if (!trendingTopic) {
+          throw new Error('No trending topics found');
+        }
+
+        return NextResponse.json({ error: 'Topic is required', suggestion: trendingTopic }, { status: 400 });
+      } catch (error) {
+        console.error('Error fetching trending topic:', error);
+        return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
+      }
     }
 
     const posts = await fetchRedditPosts(topic);
-    if (posts.length === 0) {
-      return NextResponse.json({ error: 'No posts found' }, { status: 404 });
-    }
-
+    
     // Select the most engaging post
     const bestPost = posts.reduce((best: any, current: any) => {
-      const bestScore = best.score * 1.5 + best.num_comments;
-      const currentScore = current.score * 1.5 + current.num_comments;
+      const bestScore = (best.score || 0) * 1.5 + (best.num_comments || 0);
+      const currentScore = (current.score || 0) * 1.5 + (current.num_comments || 0);
       return currentScore > bestScore ? current : best;
-    });
+    }, posts[0]);
+
+    if (!bestPost) {
+      return NextResponse.json({ error: 'No suitable posts found' }, { status: 404 });
+    }
 
     // Generate the real gossip summary
     const realGossipResponse = await openai.chat.completions.create({
@@ -121,8 +156,12 @@ export async function GET(request: Request) {
     });
 
     const fakeGossips = fakeGossipResponse.choices[0].message.content?.split('\n\n')
-      .filter(gossip => gossip.trim().length > 0)
+      .filter(gossip => gossip?.trim()?.length > 0)
       .slice(0, 2) || [];
+
+    if (fakeGossips.length < 2) {
+      throw new Error('Failed to generate fake gossip stories');
+    }
 
     // Create the stories array and shuffle
     const stories = [
@@ -141,6 +180,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Error:', error);
-    return NextResponse.json({ error: 'Failed to generate gossip' }, { status: 500 });
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Failed to generate gossip'
+    }, { 
+      status: 500 
+    });
   }
 }
