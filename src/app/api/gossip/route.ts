@@ -114,9 +114,9 @@ export async function GET(request: Request) {
       })
       .slice(0, 5);
     
-    const bestPost = topPosts[Math.floor(Math.random() * topPosts.length)];
+    const selectedPost = topPosts[Math.floor(Math.random() * topPosts.length)];
 
-    if (!bestPost) {
+    if (!selectedPost) {
       return NextResponse.json({ error: 'No suitable posts found' }, { status: 404 });
     }
 
@@ -131,8 +131,8 @@ export async function GET(request: Request) {
         {
           role: "user",
           content: `Summarize this Reddit post into a short, playful gossip-style paragraph (2-3 sentences, wrapped in quotes):
-          Title: ${bestPost.title}
-          Content: ${bestPost.selftext?.substring(0, 500) || bestPost.title}`
+          Title: ${selectedPost.title}
+          Content: ${selectedPost.selftext?.substring(0, 500) || selectedPost.title}`
         }
       ],
       temperature: 0.7,
@@ -193,7 +193,7 @@ export async function GET(request: Request) {
 
     // Create the stories array and shuffle
     const stories: GossipStory[] = [
-      { content: realGossip, isReal: true, redditUrl: `https://reddit.com${bestPost.permalink}` },
+      { content: realGossip, isReal: true, redditUrl: `https://reddit.com${selectedPost.permalink}` },
       ...fakeGossips.map(content => ({ content, isReal: false }))
     ];
 
