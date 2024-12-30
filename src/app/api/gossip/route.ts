@@ -126,20 +126,30 @@ export async function GET(request: Request) {
       messages: [
         {
           role: "system",
-          content: "You are a gossip columnist. Create a short, engaging, and playful summary of news and stories in a gossip style. Keep it concise, around 2-3 sentences. Do not use any quotes or special formatting."
+          content: "You are a gossip columnist. Create a short, engaging, and playful summary of news and stories in a natural gossip style. Keep it concise, around 2-3 sentences. Do not use any quotes or special formatting. Write it as if it's a real celebrity gossip piece. Make it sound natural and engaging."
         },
         {
           role: "user",
-          content: `Summarize this Reddit post into a short, playful gossip-style paragraph (2-3 sentences, no quotes):
-          Title: ${selectedPost.title}
-          Content: ${selectedPost.selftext?.substring(0, 500) || selectedPost.title}`
+          content: `Write a short, playful gossip-style paragraph about this Reddit post. Make it sound like a real celebrity gossip piece in 2-3 sentences:
+
+Title: ${selectedPost.title}
+Content: ${selectedPost.selftext?.substring(0, 500) || selectedPost.title}
+
+Requirements:
+- Write in natural gossip style
+- No quotes or special formatting
+- Make it engaging and playful
+- Keep it to 2-3 sentences`
         }
       ],
       temperature: 0.7,
       max_tokens: 100,
     });
 
-    const realGossip = realGossipResponse.choices[0].message.content?.trim().replace(/^["']|["']$/g, '') || '';
+    const realGossip = realGossipResponse.choices[0].message.content?.trim()
+      .replace(/^["']|["']$/g, '') // Remove any quotes
+      .replace(/^(Story|Gossip)[\s\d]*[:.-]\s*/i, '') // Remove any story prefixes
+      .trim() || '';
 
     // Extract key elements from the real gossip
     const styleAnalysisResponse = await openai.chat.completions.create({
@@ -167,15 +177,25 @@ export async function GET(request: Request) {
       messages: [
         {
           role: "system",
-          content: "Generate two short, fictional but believable gossip stories. Each story should be 2-3 sentences and match the style of the real gossip. Use similar tone, structure, and gossip elements, but with different content. Make them tricky to distinguish from the real one. Do not use any quotes or special formatting."
+          content: "You are a gossip columnist. Generate two short, fictional but believable gossip stories. Each story should be 2-3 sentences and match the style of the real gossip. Do not use any numbering, prefixes, or quotes. Do not start with phrases like 'Gossip Story' or 'Story'. Just write the gossip directly. Make them sound natural and similar to real celebrity gossip."
         },
         {
           role: "user",
-          content: `Create two different fictional gossip stories about "${topic}" that closely match this style:
-          Real gossip: ${realGossip}
-          Style elements: ${styleAnalysis}
-          
-          Make the fake stories sound very similar but with different events/details. Do not use quotes.`
+          content: `Create two different fictional gossip stories about "${topic}" that match this style:
+
+Example of the style to match:
+${realGossip}
+
+Key style elements: ${styleAnalysis}
+
+Requirements:
+- Write each story in 2-3 sentences
+- Make them sound like real celebrity gossip
+- Do not use any numbering or labels
+- Do not use quotes
+- Do not start with 'Story 1' or similar
+- Separate stories with two newlines
+- Make them tricky to distinguish from the real one`
         }
       ],
       temperature: 0.8,
@@ -184,8 +204,11 @@ export async function GET(request: Request) {
 
     const fakeGossips = fakeGossipResponse.choices[0].message.content?.split('\n\n')
       .filter(gossip => gossip?.trim()?.length > 0)
-      .map(gossip => gossip.replace(/^\d+\.\s*/, '').trim())
-      .map(gossip => gossip.replace(/^["']|["']$/g, '').trim()) // Remove any quotes
+      .map(gossip => gossip.replace(/^\d+[\s.)-]*/, '')) // Remove any numbering
+      .map(gossip => gossip.replace(/^["']|["']$/g, '')) // Remove any quotes
+      .map(gossip => gossip.replace(/^(Story|Gossip)[\s\d]*[:.-]\s*/i, '')) // Remove story prefixes
+      .map(gossip => gossip.trim())
+      .filter(gossip => gossip.length > 0)
       .slice(0, 2) || [];
 
     if (fakeGossips.length < 2) {
