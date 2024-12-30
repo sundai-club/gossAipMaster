@@ -83,7 +83,7 @@ export async function GET(request: Request) {
         }
       ],
       temperature: 0.7,
-      max_tokens: 150,
+      max_tokens: 100,
     });
     const realGossip = realGossipResponse.choices[0].message.content?.trim() || '';
     // Generate two fake gossip stories
@@ -97,6 +97,29 @@ export async function GET(request: Request) {
         {
           role: "user",
           content: `Create two different fictional gossip stories (2-3 sentences each) about "${topic}" that are similar in style to this real gossip:\n"${realGossip}"`
+        }
+      ],
+      temperature: 0.5,
+      max_tokens: 100,
+    });
+
+    const styleAnalysis = styleAnalysisResponse.choices[0].message.content?.trim() || '';
+
+    // Generate two fake gossip stories using the style analysis
+    const fakeGossipResponse = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "Generate two short, fictional but believable gossip stories. Each story should be 2-3 sentences and match the style of the real gossip. Use similar tone, structure, and gossip elements, but with different content. Make them tricky to distinguish from the real one. Do not number the stories or add any prefixes."
+        },
+        {
+          role: "user",
+          content: `Create two different fictional gossip stories about "${topic}" that closely match this style:
+          Real gossip: "${realGossip}"
+          Style elements: "${styleAnalysis}"
+          
+          Make the fake stories sound very similar but with different events/details.`
         }
       ],
       temperature: 0.8,
