@@ -14,8 +14,9 @@ const openai = new OpenAI({
 
 async function fetchRedditPosts(topic: string) {
   try {
-    const response = await fetch(
-      `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=top&t=week&limit=5`,
+    // First try to get posts from the last day
+    let response = await fetch(
+      `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=hot&t=day&limit=10`,
       {
         headers: {
           'User-Agent': 'GossAIP/1.0',
@@ -27,12 +28,43 @@ async function fetchRedditPosts(topic: string) {
       throw new Error(`Reddit API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    if (!data?.data?.children?.length) {
-      throw new Error('No posts found');
+    let data = await response.json();
+    let posts = data?.data?.children?.map((child: any) => child.data) || [];
+
+    // If no posts found in the last day, try the last week
+    if (posts.length === 0) {
+      response = await fetch(
+        `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=hot&t=week&limit=10`,
+        {
+          headers: {
+            'User-Agent': 'GossAIP/1.0',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Reddit API error: ${response.status}`);
+      }
+
+      data = await response.json();
+      posts = data?.data?.children?.map((child: any) => child.data) || [];
     }
 
-    return data.data.children.map((child: any) => child.data);
+    // Filter out posts that don't seem relevant
+    const relevantPosts = posts.filter((post: any) => {
+      const titleLower = post.title.toLowerCase();
+      const topicLower = topic.toLowerCase();
+      return (
+        titleLower.includes(topicLower) ||
+        (post.selftext && post.selftext.toLowerCase().includes(topicLower))
+      );
+    });
+
+    if (relevantPosts.length === 0) {
+      throw new Error('No relevant posts found');
+    }
+
+    return relevantPosts;
   } catch (error) {
     console.error('Error fetching Reddit posts:', error);
     throw error;
@@ -106,12 +138,16 @@ export async function GET(request: Request) {
 
     const posts = await fetchRedditPosts(topic);
     
-    // Select the most engaging post
-    const bestPost = posts.reduce((best: any, current: any) => {
-      const bestScore = (best.score || 0) * 1.5 + (best.num_comments || 0);
-      const currentScore = (current.score || 0) * 1.5 + (current.num_comments || 0);
-      return currentScore > bestScore ? current : best;
-    }, posts[0]);
+    // Select a random post from the top 5 most engaging posts
+    const topPosts = posts
+      .sort((a: any, b: any) => {
+        const scoreA = (a.score || 0) * 1.5 + (a.num_comments || 0);
+        const scoreB = (b.score || 0) * 1.5 + (b.num_comments || 0);
+        return scoreB - scoreA;
+      })
+      .slice(0, 5);
+    
+    const bestPost = topPosts[Math.floor(Math.random() * topPosts.length)];
 
     if (!bestPost) {
       return NextResponse.json({ error: 'No suitable posts found' }, { status: 404 });
@@ -123,17 +159,17 @@ export async function GET(request: Request) {
       messages: [
         {
           role: "system",
-          content: "You are a gossip columnist. Create engaging, playful summaries of news and stories in a gossip style."
+          content: "You are a gossip columnist. Create a short, engaging, and playful summary of news and stories in a gossip style. Keep it concise, around 2-3 sentences."
         },
         {
           role: "user",
-          content: `Summarize this Reddit post into a playful, gossip-style paragraph:
+          content: `Summarize this Reddit post into a short, playful gossip-style paragraph (2-3 sentences):
           Title: ${bestPost.title}
           Content: ${bestPost.selftext?.substring(0, 500) || bestPost.title}`
         }
       ],
       temperature: 0.7,
-      max_tokens: 150,
+      max_tokens: 100,
     });
 
     const realGossip = realGossipResponse.choices[0].message.content?.trim() || '';
@@ -144,20 +180,21 @@ export async function GET(request: Request) {
       messages: [
         {
           role: "system",
-          content: "Generate two fictional but believable gossip stories about the given topic. Make them engaging and playful."
+          content: "Generate two short, fictional but believable gossip stories about the given topic. Each story should be 2-3 sentences and in a similar style to the real gossip. Do not number the stories or add any prefixes."
         },
         {
           role: "user",
-          content: `Create two different fictional gossip stories about "${topic}" that are similar in style to this real gossip:
+          content: `Create two different fictional gossip stories about "${topic}" that are similar in style and length to this real gossip:
           "${realGossip}"`
         }
       ],
       temperature: 0.8,
-      max_tokens: 300,
+      max_tokens: 200,
     });
 
     const fakeGossips = fakeGossipResponse.choices[0].message.content?.split('\n\n')
       .filter(gossip => gossip?.trim()?.length > 0)
+      .map(gossip => gossip.replace(/^\d+\.\s*/, '').trim()) // Remove any numbering
       .slice(0, 2) || [];
 
     if (fakeGossips.length < 2) {
