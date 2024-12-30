@@ -8,7 +8,7 @@ const openai = new OpenAI({
 
 async function fetchRedditPosts(topic: string) {
   const response = await fetch(
-    `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=top&t=week&limit=5`,
+    `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=top&t=week&limit=20`,
     {
       headers: {
         'User-Agent': 'GossAIP/1.0',
@@ -41,35 +41,36 @@ export async function GET(request: Request) {
       throw new Error('No posts found');
     }
 
-    // Select the most engaging post
-    const bestPost = posts.reduce((best: any, current: any) => {
-      const bestScore = best.score * 1.5 + best.num_comments;
-      const currentScore = current.score * 1.5 + current.num_comments;
-      return currentScore > bestScore ? current : best;
-    });
+    // Select top 10 most engaging posts
+    const topPosts = posts
+      .sort((a: any, b: any) => (b.score * 1.5 + b.num_comments) - (a.score * 1.5 + a.num_comments))
+      .slice(0, 10);
+
+    // Prepare content for GPT
+    const postsContent = topPosts.map((post: any) => 
+      `Title: ${post.title}\nContent: ${post.selftext?.substring(0, 200) || post.title}`
+    ).join('\n\n');
 
     // Generate the real gossip summary
     const realGossipResponse = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "You are a gossip columnist. Create engaging, playful summaries of news and stories in a gossip style."
+          content: "You are a gossip columnist. Create an engaging, playful summary of news and stories in a gossip style."
         },
         {
           role: "user",
-          content: `Summarize this Reddit post into a playful, gossip-style paragraph:
-          Title: ${bestPost.title}
-          Content: ${bestPost.selftext?.substring(0, 500) || bestPost.title}`
+          content: `Summarize these top Reddit posts into a cohesive, playful, gossip-style short summary:\n\n${postsContent}`
         }
       ],
       temperature: 0.7,
-      max_tokens: 150,
+      max_tokens: 250,
     });
 
     const realGossip = realGossipResponse.choices[0].message.content?.trim() || '';
 
-    // Generate two fake gossip stories
+    // Generate two fake gossip stories (same as before)
     const fakeGossipResponse = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
 
     // Create the stories array and shuffle
     const stories: GossipStory[] = [
-      { content: realGossip, isReal: true, redditUrl: `https://reddit.com${bestPost.permalink}` },
+      { content: realGossip, isReal: true, redditUrl: `https://reddit.com/search?q=${encodeURIComponent(topic)}` },
       ...fakeGossips.map(content => ({ content, isReal: false }))
     ];
 
