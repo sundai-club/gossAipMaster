@@ -103,43 +103,52 @@ export default function GossipGame() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getFunScoreMessage = (score: number, attempts: number) => {
-    const accuracy = attempts > 0 ? (score / attempts) * 100 : 0;
-    
-    if (attempts === 0) return "Cold feet? You haven't even started spilling the tea! 🫖";
-    
-    if (accuracy === 100) {
-      return "OMG! You're the Queen/King of Gossip! TMZ should hire you ASAP! 👑";
-    } else if (accuracy >= 80) {
-      return "Yasss! You're serving hot tea like a pro! Spill it, bestie! ☕️";
-    } else if (accuracy >= 60) {
-      return "Not bad, honey! You've got the gossip game going! 💅";
-    } else if (accuracy >= 40) {
-      return "Hmm... you're more E! News than TMZ, but keep practicing! 📺";
-    } else if (accuracy >= 20) {
-      return "Sweetie, you're believing everything you read on Facebook! 🤦‍♀️";
+  const getScoreMessage = (score: number) => {
+    if (score >= 5) {
+      return "🎭 👑 You are the ULTIMATE GOSSIP MASTER! 👑 🎭\nYour ability to spot real tea is legendary! 🫖✨";
+    } else if (score >= 3) {
+      return "🌟 Impressive Gossip Detective! 🔍\nYou've got a natural talent for spotting the truth! 💫";
+    } else if (score >= 1) {
+      return "🎯 Not Bad, Gossip Apprentice! 📚\nKeep practicing your rumor radar! 🎪";
     } else {
-      return "Bless your heart... Maybe stick to reading the weather forecast? 🌤️";
+      return "🎪 Welcome to the Gossip Circus! 🎪\nTime to sharpen those truth-spotting skills! 🎭";
     }
   };
 
+  const getTimeMessage = (timeLeft: number) => {
+    if (timeLeft <= 10) {
+      return "⏰ Hurry up! Time's almost up! ⚡";
+    } else if (timeLeft <= 30) {
+      return "⌛ Clock is ticking... Choose wisely! 🤔";
+    }
+    return "🕒 Take your time to spot the truth! 🔍";
+  };
+
   if (gameOver) {
-    const accuracy = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
-    const message = getFunScoreMessage(score, attempts);
+    const message = getScoreMessage(score);
     
     return (
-      <div className="max-w-2xl mx-auto p-6 bg-white/10 backdrop-blur-lg rounded-lg shadow-xl">
-        <h2 className="text-3xl font-bold text-center mb-6 text-white">Tea Time's Over!</h2>
-        <div className="text-center space-y-4 text-white">
-          <p className="text-2xl mb-4">{message}</p>
-          <p className="text-xl">Spilled Tea Score: {score}</p>
-          <p className="text-xl">Gossip Attempts: {attempts}</p>
-          <p className="text-xl">Gossip Accuracy: {accuracy}%</p>
+      <div className="max-w-2xl mx-auto p-8 bg-white/10 backdrop-blur-lg rounded-lg shadow-xl border-2 border-purple-400/30">
+        <div className="text-center text-white space-y-6">
+          <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">Game Over!</h2>
+          <div className="space-y-4 mb-8">
+            <p className="text-2xl font-medium whitespace-pre-line">{message}</p>
+            <div className="grid grid-cols-2 gap-4 max-w-md mx-auto mt-6">
+              <div className="bg-purple-900/40 p-4 rounded-lg">
+                <p className="text-lg">Score</p>
+                <p className="text-3xl font-bold text-purple-300">{score}</p>
+              </div>
+              <div className="bg-purple-900/40 p-4 rounded-lg">
+                <p className="text-lg">Attempts</p>
+                <p className="text-3xl font-bold text-purple-300">{attempts}</p>
+              </div>
+            </div>
+          </div>
           <button
             onClick={handleStartGame}
-            className="mt-6 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="mt-8 px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 font-medium text-lg shadow-lg"
           >
-            Spill More Tea! 🫖
+            Play Again 🎭
           </button>
         </div>
       </div>
@@ -174,7 +183,7 @@ export default function GossipGame() {
     <div className="max-w-2xl mx-auto p-6 bg-white/10 backdrop-blur-lg rounded-lg shadow-xl">
       <div className="mb-6 flex justify-between items-center text-white">
         <div>Score: {score}</div>
-        <div>Time Left: {formatTime(timeLeft)}</div>
+        <div>{getTimeMessage(timeLeft)} ({formatTime(timeLeft)})</div>
       </div>
       
       {loading ? (
