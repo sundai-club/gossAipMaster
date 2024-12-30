@@ -24,7 +24,7 @@ export default function GossipGame() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [revealed, setRevealed] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(60); // 1 minute in seconds
   const [score, setScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [gameOver, setGameOver] = useState(false);
@@ -73,7 +73,7 @@ export default function GossipGame() {
     setGameStarted(true);
     setScore(0);
     setAttempts(0);
-    setTimeLeft(120);
+    setTimeLeft(60); // 1 minute
     setGameOver(false);
     if (topic) {
       fetchGossip(topic);
@@ -103,20 +103,43 @@ export default function GossipGame() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getFunScoreMessage = (score: number, attempts: number) => {
+    const accuracy = attempts > 0 ? (score / attempts) * 100 : 0;
+    
+    if (attempts === 0) return "Cold feet? You haven't even started spilling the tea! 🫖";
+    
+    if (accuracy === 100) {
+      return "OMG! You're the Queen/King of Gossip! TMZ should hire you ASAP! 👑";
+    } else if (accuracy >= 80) {
+      return "Yasss! You're serving hot tea like a pro! Spill it, bestie! ☕️";
+    } else if (accuracy >= 60) {
+      return "Not bad, honey! You've got the gossip game going! 💅";
+    } else if (accuracy >= 40) {
+      return "Hmm... you're more E! News than TMZ, but keep practicing! 📺";
+    } else if (accuracy >= 20) {
+      return "Sweetie, you're believing everything you read on Facebook! 🤦‍♀️";
+    } else {
+      return "Bless your heart... Maybe stick to reading the weather forecast? 🌤️";
+    }
+  };
+
   if (gameOver) {
     const accuracy = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
+    const message = getFunScoreMessage(score, attempts);
+    
     return (
       <div className="max-w-2xl mx-auto p-6 bg-white/10 backdrop-blur-lg rounded-lg shadow-xl">
-        <h2 className="text-3xl font-bold text-center mb-6 text-white">Game Over!</h2>
+        <h2 className="text-3xl font-bold text-center mb-6 text-white">Tea Time's Over!</h2>
         <div className="text-center space-y-4 text-white">
-          <p className="text-2xl">Final Score: {score}</p>
-          <p className="text-xl">Total Attempts: {attempts}</p>
-          <p className="text-xl">Accuracy: {accuracy}%</p>
+          <p className="text-2xl mb-4">{message}</p>
+          <p className="text-xl">Spilled Tea Score: {score}</p>
+          <p className="text-xl">Gossip Attempts: {attempts}</p>
+          <p className="text-xl">Gossip Accuracy: {accuracy}%</p>
           <button
             onClick={handleStartGame}
             className="mt-6 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
           >
-            Play Again
+            Spill More Tea! 🫖
           </button>
         </div>
       </div>
@@ -132,7 +155,7 @@ export default function GossipGame() {
             type="text"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="Enter a topic..."
+            placeholder="What's the tea about...?"
             className="w-full p-3 rounded-lg bg-white/20 text-white placeholder-white/50 backdrop-blur-sm"
           />
           <button
@@ -140,7 +163,7 @@ export default function GossipGame() {
             disabled={!topic}
             className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Start 2-Minute Challenge!
+            Start 1-Minute Tea Time! ☕️
           </button>
         </div>
       </div>
