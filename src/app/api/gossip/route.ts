@@ -122,15 +122,15 @@ export async function GET(request: Request) {
 
     // Generate the real gossip summary
     const realGossipResponse = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "You are a gossip columnist. Create a short, engaging, and playful summary of news and stories in a gossip style. Keep it concise, around 2-3 sentences. Use quotes around the entire gossip."
+          content: "You are a gossip columnist. Create a short, engaging, and playful summary of news and stories in a gossip style. Keep it concise, around 2-3 sentences. Do not use any quotes or special formatting."
         },
         {
           role: "user",
-          content: `Summarize this Reddit post into a short, playful gossip-style paragraph (2-3 sentences, wrapped in quotes):
+          content: `Summarize this Reddit post into a short, playful gossip-style paragraph (2-3 sentences, no quotes):
           Title: ${selectedPost.title}
           Content: ${selectedPost.selftext?.substring(0, 500) || selectedPost.title}`
         }
@@ -139,11 +139,11 @@ export async function GET(request: Request) {
       max_tokens: 100,
     });
 
-    const realGossip = realGossipResponse.choices[0].message.content?.trim() || '';
+    const realGossip = realGossipResponse.choices[0].message.content?.trim().replace(/^["']|["']$/g, '') || '';
 
     // Extract key elements from the real gossip
     const styleAnalysisResponse = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -163,11 +163,11 @@ export async function GET(request: Request) {
 
     // Generate two fake gossip stories using the style analysis
     const fakeGossipResponse = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "Generate two short, fictional but believable gossip stories. Each story should be 2-3 sentences and match the style of the real gossip. Use similar tone, structure, and gossip elements, but with different content. Make them tricky to distinguish from the real one. Wrap each story in quotes."
+          content: "Generate two short, fictional but believable gossip stories. Each story should be 2-3 sentences and match the style of the real gossip. Use similar tone, structure, and gossip elements, but with different content. Make them tricky to distinguish from the real one. Do not use any quotes or special formatting."
         },
         {
           role: "user",
@@ -175,7 +175,7 @@ export async function GET(request: Request) {
           Real gossip: ${realGossip}
           Style elements: ${styleAnalysis}
           
-          Make the fake stories sound very similar but with different events/details. Remember to wrap each story in quotes.`
+          Make the fake stories sound very similar but with different events/details. Do not use quotes.`
         }
       ],
       temperature: 0.8,
@@ -185,6 +185,7 @@ export async function GET(request: Request) {
     const fakeGossips = fakeGossipResponse.choices[0].message.content?.split('\n\n')
       .filter(gossip => gossip?.trim()?.length > 0)
       .map(gossip => gossip.replace(/^\d+\.\s*/, '').trim())
+      .map(gossip => gossip.replace(/^["']|["']$/g, '').trim()) // Remove any quotes
       .slice(0, 2) || [];
 
     if (fakeGossips.length < 2) {
